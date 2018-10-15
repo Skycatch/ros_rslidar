@@ -34,6 +34,8 @@ public:
   }
 
 private:
+  void chatterCallback(const std_msgs::String::ConstPtr& msg);
+
   void callback(rslidar_pointcloud::CloudNodeConfig& config, uint32_t level);
 
   void processScan(const rslidar_msgs::rslidarScan::ConstPtr& scanMsg);
@@ -43,6 +45,7 @@ private:
 
   boost::shared_ptr<rslidar_rawdata::RawData> data_;
   ros::Subscriber rslidar_scan_;
+  ros::Subscriber message;
   ros::Publisher output_;
 };
 

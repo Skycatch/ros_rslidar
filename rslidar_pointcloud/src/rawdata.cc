@@ -18,6 +18,14 @@
  *
  */
 #include "rawdata.h"
+#include <iostream>
+#include <sstream>
+#include <vector>
+
+int angleMin = 0;
+int angleMax = 360;
+int laserMin = 0;
+int laserMax = 16;
 
 namespace rslidar_rawdata
 {
@@ -272,7 +280,7 @@ void RawData::processDifop(const rslidar_msgs::rslidarPacket::ConstPtr& difop_ms
           aIntensityCal[4][loopn] = (bit1 * 256 + bit2) * 0.00001;
           bit1 = static_cast<int>(*(data + 50 + loopn * 15 + 10));
           bit2 = static_cast<int>(*(data + 50 + loopn * 15 + 11));
-          aIntensityCal[5][loopn] = -(bit1 * 256 + bit2) * 0.0001;
+          aIntensityCal[5][loopn] = -(bit1 * 256 + bit2) * 0.00001;
           bit1 = static_cast<int>(*(data + 50 + loopn * 15 + 12));
           bit2 = static_cast<int>(*(data + 50 + loopn * 15 + 13));
           aIntensityCal[6][loopn] = (bit1 * 256 + bit2) * 0.001;
@@ -527,8 +535,26 @@ int RawData::estimateTemperature(float Temper)
  *  @param pkt raw packet to unpack
  *  @param pc shared pointer to point cloud (points are appended)
  */
-void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud)
+void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud, std::string s)
 {
+  // std::cout << s << std::endl;
+  std::string token;
+  std::istringstream ss(s);
+  std::vector<int> buffer;
+  for (int i = 0; i < 4; ++i) {
+    buffer.push_back(0);
+  }
+  int index = 0;
+  while (std::getline(ss, token, ' ')) {
+    buffer[index] = stoi(token);
+    index += 1;
+  }
+  ::angleMin = buffer[0];
+  ::angleMax = buffer[1];
+  ::laserMin = buffer[2];
+  ::laserMax = buffer[3];
+  // std::cout << x << " " << y << " " << z << " " << zz << std::endl;
+
   if (numOfLasers == 32)
   {
     unpack_RS32(pkt, pointcloud);
@@ -617,7 +643,14 @@ void RawData::unpack(const rslidar_msgs::rslidarPacket& pkt, pcl::PointCloud<pcl
         float arg_vert = VERT_ANGLE[dsr];
         pcl::PointXYZI point;
 
-        if (distance2 > DISTANCE_MAX || distance2 < DISTANCE_MIN)  // invalid data
+        if ((::angleMin < ::angleMax) && (distance2 > DISTANCE_MAX || distance2 < DISTANCE_MIN || dsr < ::laserMin || dsr > ::laserMax || azimuth_corrected/100 < ::angleMin || azimuth_corrected/100 > ::angleMax))  // invalid data
+        {
+          point.x = NAN;
+          point.y = NAN;
+          point.z = NAN;
+          point.intensity = 0;
+          pointcloud->at(2 * this->block_num + firing, dsr) = point;
+        } else if ((::angleMin > ::angleMax) && (distance2 > DISTANCE_MAX || distance2 < DISTANCE_MIN || dsr < ::laserMin || dsr > ::laserMax || (azimuth_corrected/100 < ::angleMin && azimuth_corrected/100 > ::angleMax)))  // invalid data
         {
           point.x = NAN;
           point.y = NAN;

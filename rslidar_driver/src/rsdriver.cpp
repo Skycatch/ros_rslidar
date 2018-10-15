@@ -14,13 +14,18 @@
  */
 #include "rsdriver.h"
 #include <rslidar_msgs/rslidarScan.h>
+#include <iostream>
 
 namespace rslidar_driver
 {
 rslidarDriver::rslidarDriver(ros::NodeHandle node, ros::NodeHandle private_nh)
 {
   // use private node handle to get parameters
+  // for Google Cartographer ->
+  // private_nh.param("frame_id", config_.frame_id, std::string("horizontal_laser_link"));
+  // for RS Lidar use ->
   private_nh.param("frame_id", config_.frame_id, std::string("rslidar"));
+
 
   std::string tf_prefix = tf::getPrefixParam(private_nh);
   ROS_DEBUG_STREAM("tf_prefix: " << tf_prefix);
@@ -194,7 +199,8 @@ bool rslidarDriver::poll(void)
 
   // publish message using time of last packet read
   ROS_DEBUG("Publishing a full rslidar scan.");
-  scan->header.stamp = scan->packets.back().stamp;
+  //scan->header.stamp = scan->packets.back().stamp;
+  scan->header.stamp = ros::Time::now();
   scan->header.frame_id = config_.frame_id;
   msop_output_.publish(scan);
 
@@ -220,6 +226,7 @@ void rslidarDriver::difopPoll(void)
       ROS_DEBUG("Publishing a difop data.");
       *difop_packet_ptr = difop_packet_msg;
       difop_output_.publish(difop_packet_ptr);
+      // std::cout << difop_packet_msg << std::endl;
     }
     if (rc < 0)
       return;  // end of file reached?

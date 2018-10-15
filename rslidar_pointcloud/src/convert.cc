@@ -15,10 +15,20 @@
 */
 #include "convert.h"
 #include <pcl_conversions/pcl_conversions.h>
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include "iostream"
+
+std::string angle_laser_selection;
 
 namespace rslidar_pointcloud
 {
 std::string model;
+
+void Convert::chatterCallback(const std_msgs::String::ConstPtr& msg) {
+  //ROS_INFO("I heard: [%s]", msg->data.c_str());
+  ::angle_laser_selection = msg->data.c_str();
+}
 
 /** @brief Constructor. */
 Convert::Convert(ros::NodeHandle node, ros::NodeHandle private_nh) : data_(new rslidar_rawdata::RawData())
@@ -37,6 +47,8 @@ Convert::Convert(ros::NodeHandle node, ros::NodeHandle private_nh) : data_(new r
   // subscribe to rslidarScan packets
   rslidar_scan_ = node.subscribe("rslidar_packets", 10, &Convert::processScan, (Convert*)this,
                                  ros::TransportHints().tcpNoDelay(true));
+  message = node.subscribe("chatter", 1000, &Convert::chatterCallback, (Convert*)this, ros::TransportHints().tcpNoDelay(true));
+  std::cout << "done subscribing" << std::endl;
 }
 
 void Convert::callback(rslidar_pointcloud::CloudNodeConfig& config, uint32_t level)
@@ -72,10 +84,13 @@ void Convert::processScan(const rslidar_msgs::rslidarScan::ConstPtr& scanMsg)
   data_->block_num = 0;
   for (size_t i = 0; i < scanMsg->packets.size(); ++i)
   {
-    data_->unpack(scanMsg->packets[i], outPoints);
+    data_->unpack(scanMsg->packets[i], outPoints, ::angle_laser_selection);
   }
   sensor_msgs::PointCloud2 outMsg;
   pcl::toROSMsg(*outPoints, outMsg);
+
+  // print time
+  // std::cout << outMsg.header.stamp << std::endl;
 
   output_.publish(outMsg);
 }
